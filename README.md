@@ -1,113 +1,129 @@
-# 🪄 ぷにメモリー (PuniMemory)
+# 🪄 ぷにメモリー (PuniMemory) — 感情をオーブに変える、完全プライベート日記
 
-> あなたの"今"をAIが永久保存する、ぷにぷに思い出カプセル
+> あなたの"今"をAIがぷにぷにオーブに変換。サーバー不要・アカウント不要・完全ローカル保存。
 
-毎日の気持ちをAIが解析して、世界に一つだけの**ぷにぷにオーブ**を生成するサービス。
-タイムカプセル機能で未来の自分にメッセージも送れます。
+🌐 **ライブデモ**: https://guttyanneruuuuuu.github.io/service12/
 
-## ✨ 特徴
+---
 
-- 🧠 **AI感情解析**: 文章から喜怒哀楽を自動判定（完全ローカル処理・APIレス）
-- 💎 **ぷにぷにオーブ生成**: 感情・強度に応じて色・パターン・レアリティを動的生成
-- 📦 **タイムカプセル**: 未来の任意日時に自動開封されるメッセージ
-- 📚 **オーブ図鑑**: 集めたオーブをコレクション、レアリティ抽選あり
-- 🌈 **広場（ギャラリー）**: みんなの公開オーブをのぞける（バイラル成長）
-- 📊 **記録ダッシュボード**: 感情の内訳・連続記録日数・レアリティ図鑑
-- 🌟 **日替わりお題**: 毎日変わるテーマでハッシュタグ拡散誘導
-- 🎯 **シェア最適化**: 動的OGP画像・Twitter/LINE共有・リアクション機能
-- 🛡️ **セキュリティ**: CSP, XSS対策, レート制限, IP匿名化, HttpOnly Cookie
-- 📱 **PWA対応**: ホーム画面追加可、モバイル&PC対応のぷにぷにUI
+## 🏆 競合との差別化ポイント
 
-## 🛠 技術スタック
+| 機能 | ぷにメモリー | Daylio | Reflectly | Moodnotes |
+|------|-------------|--------|-----------|-----------|
+| 完全プライベート（サーバーなし） | ✅ | ❌ | ❌ | ❌ |
+| アカウント不要 | ✅ | ❌ | ❌ | ❌ |
+| オーブ生成（ビジュアル感情表現） | ✅ | ❌ | ❌ | ❌ |
+| タイムカプセル | ✅ | ❌ | ❌ | ❌ |
+| オーブフュージョン | ✅ | ❌ | ❌ | ❌ |
+| 実績バッジ（18種） | ✅ | ❌ | ❌ | ❌ |
+| 感情ヒートマップカレンダー | ✅ | △ | ❌ | ❌ |
+| 「この日の思い出」機能 | ✅ | ❌ | △ | ❌ |
+| エクスポート/インポート | ✅ | 有料 | ❌ | ❌ |
+| 完全無料 | ✅ | △ | ❌ | ❌ |
+| オフライン対応 | ✅ | アプリのみ | ❌ | ❌ |
 
-- **Cloudflare Pages** + **Cloudflare D1** (SQLite)
-- **Hono** (軽量フレームワーク)
-- **Vite** ビルド
-- **TypeScript** + Hono JSX
-- 完全無料で運用可能（高校生でも作れる！）
+---
 
-## 🚀 デプロイ手順
+## ✨ ユニーク機能
 
-### 1. Cloudflare アカウント準備
+### 🔒 完全プライベート（最大の差別化）
+- **データはあなたの端末のみに保存**。サーバーに送信しない
+- アカウント登録不要。即使用開始
+- クラウド同期アプリへの不信感が高まる現代に最適
 
-1. [Cloudflare](https://dash.cloudflare.com/sign-up) で無料アカウント作成
-2. APIトークンを発行: https://dash.cloudflare.com/profile/api-tokens
-   - "Edit Cloudflare Workers" テンプレートを使用
+### 💎 ぷにぷにオーブ生成
+- AIが感情を解析して、世界に一つのオーブを生成
+- 7種類の感情 × 5パターン × 4レアリティ（コモン/レア/エピック/レジェンダリー）
+- 美しいSVGアニメーションで表示
 
-### 2. D1 データベース作成
+### 🔮 オーブフュージョン（他にない機能）
+- 同じレアリティのオーブ3つを合成してより高いレアリティに進化
+- コモン×3 → レア、レア×3 → エピック、エピック×3 → レジェンダリー
 
-```bash
-# 環境変数設定
-export CLOUDFLARE_API_TOKEN="your-token"
-export CLOUDFLARE_ACCOUNT_ID="your-account-id"
+### ⏳ タイムカプセル
+- 1週間後・1ヶ月後・半年後・1年後に自動開封
+- 開封までのカウントダウン表示
 
-# D1データベース作成
-npx wrangler d1 create puni-memory-db
-# → 出力された database_id を wrangler.jsonc にコピー
-```
+### 📅 感情ヒートマップカレンダー（GitHubライク）
+- 6ヶ月分の感情をカラー別カレンダーで可視化
+- 日付をクリックでその日のオーブを確認
 
-### 3. wrangler.jsonc を編集
+### 🕰️ 「この日の思い出」
+- 1週間前・1ヶ月前・半年前・1年前の同じ日の記録を自動サーフェス
 
-```jsonc
-"d1_databases": [
-  {
-    "binding": "DB",
-    "database_name": "puni-memory-db",
-    "database_id": "ここにD1作成時に出力されたID",
-    "migrations_dir": "migrations"
-  }
-]
-```
+### 🏅 実績バッジ（18種）
+- 初めてのオーブ、7日連続、レジェンダリー取得、フュージョン達成など
+- ゲーミフィケーションで継続を促進
 
-### 4. マイグレーション & デプロイ
+### 📦 エクスポート/インポート
+- 完全なJSONバックアップ
+- 端末を変えても記録を引き継げる
 
-```bash
-# 本番DBへスキーマ適用
-npx wrangler d1 migrations apply puni-memory-db
+---
 
-# ビルド
-npm run build
+## 🛠 技術スタック（GitHub Pages版）
 
-# Cloudflare Pages にデプロイ
-npx wrangler pages deploy dist --project-name=service12
-```
+- **Vite** + **TypeScript** — 静的SPAビルド
+- **GitHub Pages** — 無料ホスティング
+- **localStorage** — ブラウザローカルストレージ（サーバー不要）
+- **GitHub Actions** — 自動デプロイ
+- ローカル感情解析エンジン（外部API不要）
+- Pure CSS アニメーション
 
-## 🧑‍💻 ローカル開発
+---
+
+## 🚀 GitHub Pagesへのデプロイ手順
+
+### 1. リポジトリ設定
+GitHubリポジトリの **Settings > Pages** で：
+- Source: `GitHub Actions` を選択
+
+### 2. 自動デプロイ
+`main` ブランチにプッシュすると **GitHub Actions** が自動的にビルド・デプロイします。
+
+デプロイ先: `https://<ユーザー名>.github.io/service12/`
+
+### 3. ローカル開発
 
 ```bash
 npm install
-npx wrangler d1 execute puni-memory-db --local --file=./migrations/0001_init.sql
-npm run build
-npm run dev
-# → http://localhost:3000
+npm run build:pages   # 静的ビルド（dist/フォルダに出力）
+npm run preview:pages # ローカルプレビュー → http://localhost:4173/service12/
 ```
 
-## 💰 収益化導線
+---
 
-1. **プレミアム会員（月額300円）**
-   - 無制限カプセル保存
-   - 限定スキン
-   - 5年タイムカプセル
-   - 図鑑エクスポート
-2. **ぷにオーブ限定スキンガチャ**（投げ銭式）
-3. **アフィリエイト**（日記帳・文房具リンク）
-4. **SNSバイラル拡散**による広告収入
+## ☁️ Cloudflare Pages版（元の構成）
 
-## 🔒 セキュリティ対策
+Cloudflare D1データベース付きのサーバーサイドレンダリング版も維持しています。
 
-- ✅ Content-Security-Policy（XSS防御）
-- ✅ X-Frame-Options: DENY（クリックジャッキング対策）
-- ✅ Permissions-Policy（不要な権限の禁止）
-- ✅ レート制限（1時間20カプセル / 10リアクション）
-- ✅ 入力値検証・サニタイズ
-- ✅ IP アドレスはハッシュ化のみ保存
-- ✅ HttpOnly + Secure + SameSite Cookie
-- ✅ HTML エスケープ徹底
+```bash
+# D1データベース作成
+npx wrangler d1 create puni-memory-db
 
-## 📊 アナリティクス
+# マイグレーション & デプロイ
+npm run build
+npm run deploy
+```
 
-すべての主要イベント（page_view, capsule_created, share_view, react など）を
-匿名で D1 に記録。`analytics_events` テーブルで分析可能。
+---
+
+## 💰 収益化の方向性
+
+1. **プレミアム会員**（クロスデバイス同期オプション）
+2. **オーブスキンガチャ**（投げ銭式）
+3. **SNSバイラル**：ユニークなビジュアルでシェア誘発
+
+---
+
+## 🔒 セキュリティ・プライバシー
+
+- ✅ データはlocalStorageのみ保存（サーバー送信なし）
+- ✅ ユーザー追跡なし
+- ✅ アカウント不要
+- ✅ オフライン完全動作
+
+---
 
 ## 📝 ライセンス
 

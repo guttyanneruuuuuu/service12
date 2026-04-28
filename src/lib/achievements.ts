@@ -115,7 +115,7 @@ export function checkAndUnlockAchievements(newCapsule?: Capsule): string[] {
   if (newCapsule) {
     const h = new Date(newCapsule.createdAt).getHours()
     if (h >= 0 && h < 4) tryUnlock('night_owl')
-    if (h >= 5 && h < 8) tryUnlock('early_bird')
+    if (h >= 5 && h < 7) tryUnlock('early_bird')
   }
 
   if (newlyUnlocked.length) saveUnlocked(unlocked)
