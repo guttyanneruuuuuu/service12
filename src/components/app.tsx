@@ -1001,7 +1001,14 @@ function showResult(d) {
   const orbHtml = isLocked ? lockedOrbHtml() : orbSvgInline(d.orb);
   const openAtStr = d.openAt ? new Date(d.openAt).toLocaleString('ja-JP', { year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
   const shareUrl = location.origin + '/c/' + d.shareId;
-  const shareText = encodeURIComponent('わたしの今日のぷにオーブができた ✨ #ぷにメモリー');
+  const rarityLine = ({legendary:'🌟 LEGENDARY が出た！',epic:'💜 EPIC オーブ！',rare:'💎 RARE オーブ！',common:''})[d.orb.rarity] || '';
+  const baseText = isLocked ? '未来のわたしへ手紙を書いた 💌' : 'わたしの今日のぷにオーブができた ✨';
+  const shareText = encodeURIComponent((rarityLine ? rarityLine + '\\n' : '') + baseText + ' #ぷにメモリー');
+
+  // レジェンダリー時は紙吹雪
+  if (d.orb.rarity === 'legendary' || d.orb.rarity === 'epic') {
+    confetti(d.orb.color, d.orb.color2);
+  }
 
   area.innerHTML = \`
     <div class="puni-result-card">
@@ -1078,6 +1085,26 @@ function lockedOrbHtml() {
 
 function rarityLabel(r) {
   return ({common:'コモン',rare:'レア',epic:'エピック',legendary:'レジェンダリー'})[r] || r;
+}
+
+function confetti(c1, c2) {
+  const colors = [c1, c2, '#FFD93D', '#FF8FB1', '#B69BFF', '#8AB8FF'];
+  const n = 80;
+  const root = document.body;
+  for (let i = 0; i < n; i++) {
+    const el = document.createElement('div');
+    const c = colors[i % colors.length];
+    el.style.cssText = 'position:fixed;left:'+(50+(Math.random()-0.5)*60)+'%;top:30%;width:'+(6+Math.random()*8)+'px;height:'+(8+Math.random()*10)+'px;background:'+c+';border-radius:'+(Math.random()>0.5?'50%':'2px')+';pointer-events:none;z-index:300;';
+    const dx = (Math.random()-0.5)*600;
+    const dy = 400+Math.random()*400;
+    const rot = Math.random()*720;
+    el.animate([
+      { transform: 'translate(0,0) rotate(0deg)', opacity: 1 },
+      { transform: 'translate('+dx+'px,'+dy+'px) rotate('+rot+'deg)', opacity: 0 }
+    ], { duration: 1500+Math.random()*1000, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
+    root.appendChild(el);
+    setTimeout(() => el.remove(), 2700);
+  }
 }
 function escapeHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -1257,6 +1284,35 @@ async function loadStats() {
   }
 }
 window.__t = track;
+
+// 初回オンボーディング
+function showOnboarding() {
+  if (localStorage.getItem('puni_onboarded')) return;
+  $('#modal-content').innerHTML = \`
+    <button class="puni-modal-close" data-close>✕</button>
+    <div style="text-align:center;padding:8px 0;">
+      <div style="font-size:60px;margin-bottom:8px;">🪄</div>
+      <h3 style="margin:0 0 8px;font-size:22px;">ようこそ、ぷにメモリーへ</h3>
+      <p style="line-height:1.8;color:#6B5B95;font-size:14px;margin:0 0 16px;">
+        今日の気持ちを書くと、AIが <span style="font-weight:800;color:#FF8FB1;">ぷにぷにオーブ</span> に変えるよ。<br>
+        集めて図鑑を埋めたり、未来の自分にタイムカプセルとして送ったり。<br><br>
+        <span style="color:#9D90B8;font-size:12px;">レアなオーブが出たら…✨ お楽しみに！</span>
+      </p>
+      <button class="puni-btn puni-btn-primary" data-start>はじめる</button>
+    </div>
+  \`;
+  $('#modal-root').style.display = '';
+  const close = () => {
+    $('#modal-root').style.display = 'none';
+    localStorage.setItem('puni_onboarded', '1');
+    track('onboarding_complete', {});
+  };
+  $('#modal-root [data-close]').onclick = close;
+  $('#modal-root [data-start]').onclick = close;
+  $('#modal-root .puni-modal-backdrop').onclick = close;
+  track('onboarding_shown', {});
+}
+setTimeout(showOnboarding, 600);
 
 // 初期表示
 track('app_loaded', { ua: navigator.userAgent.slice(0,40) });

@@ -43,8 +43,9 @@ app.use('*', secureHeaders({
   }
 }))
 
+// 同一オリジンのみ許可（credentialsCookie送信のため）
 app.use('/api/*', cors({
-  origin: (origin) => origin || '*',
+  origin: (origin) => origin || '',
   credentials: true,
   maxAge: 600
 }))
@@ -632,6 +633,35 @@ app.get('/manifest.json', (c) => {
     icons: [
       { src: '/favicon.ico', sizes: 'any', type: 'image/svg+xml' }
     ]
+  })
+})
+
+// 簡易管理者統計（ADMIN_KEYでアクセス）
+app.get('/api/admin/stats', async (c) => {
+  const key = c.req.header('x-admin-key') || c.req.query('k') || ''
+  // @ts-ignore
+  const adminKey = c.env.ADMIN_KEY || 'puni-admin-2025-changeme'
+  if (key !== adminKey) return c.json({ error: 'unauthorized' }, 401)
+
+  const day = 1000 * 60 * 60 * 24
+  const now = Date.now()
+
+  const [users, capsules, today, week, byEvent, byEmotionTotal] = await Promise.all([
+    c.env.DB.prepare('SELECT COUNT(*) as n FROM users').first<{ n: number }>(),
+    c.env.DB.prepare('SELECT COUNT(*) as n FROM capsules').first<{ n: number }>(),
+    c.env.DB.prepare('SELECT COUNT(*) as n FROM capsules WHERE created_at > ?').bind(now - day).first<{ n: number }>(),
+    c.env.DB.prepare('SELECT COUNT(*) as n FROM capsules WHERE created_at > ?').bind(now - day * 7).first<{ n: number }>(),
+    c.env.DB.prepare('SELECT event_type, COUNT(*) as n FROM analytics_events WHERE created_at > ? GROUP BY event_type ORDER BY n DESC LIMIT 20').bind(now - day * 7).all<{ event_type: string; n: number }>(),
+    c.env.DB.prepare('SELECT emotion, COUNT(*) as n FROM capsules GROUP BY emotion').all<{ emotion: string; n: number }>()
+  ])
+
+  return c.json({
+    users: users?.n || 0,
+    capsules: capsules?.n || 0,
+    capsules_today: today?.n || 0,
+    capsules_week: week?.n || 0,
+    events_week: Object.fromEntries((byEvent.results || []).map(r => [r.event_type, r.n])),
+    emotions: Object.fromEntries((byEmotionTotal.results || []).map(r => [r.emotion, r.n]))
   })
 })
 
