@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "wrangler pages dev dist --local --ip 0.0.0.0 --port 3000",
     "build": "vite build",
-    "deploy": "npm run build && wrangler pages deploy dist",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name service12",
     "db:migrate:local": "wrangler d1 migrations apply puni-memory-db --local",
     "db:migrate:prod": "wrangler d1 migrations apply puni-memory-db",
     "db:seed": "wrangler d1 execute puni-memory-db --local --file=./seed.sql"
