@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler pages dev dist --local --ip 0.0.0.0 --port 3000",
+    "dev": "wrangler pages dev dist --d1=DB=local-puni-memory --local --ip 0.0.0.0 --port 3000 --compatibility-date=2025-01-01",
     "build": "vite build",
-    "deploy": "npm run build && wrangler pages deploy dist",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name=service12",
+    "db:init:local": "wrangler d1 execute puni-memory-db --local --file=./migrations/0001_init.sql",
     "db:migrate:local": "wrangler d1 migrations apply puni-memory-db --local",
-    "db:migrate:prod": "wrangler d1 migrations apply puni-memory-db",
-    "db:seed": "wrangler d1 execute puni-memory-db --local --file=./seed.sql"
+    "db:migrate:prod": "wrangler d1 migrations apply puni-memory-db --remote"
   },
   "dependencies": {
     "hono": "^4.6.14"
