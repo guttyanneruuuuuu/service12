@@ -31,6 +31,32 @@ export interface FusionLog {
 const KEY_CAPSULES = 'puni_capsules_v2'
 const KEY_FUSIONS = 'puni_fusions'
 const KEY_LAST_SEEN = 'puni_last_seen'
+const KEY_LOGIN_STREAK = 'puni_login_streak'
+
+export interface LoginStreak {
+  streak: number
+  totalDays: number
+  lastLoginDate: string  // YYYY-MM-DD
+}
+
+export function checkAndUpdateDailyLogin(): { isNewDay: boolean; streak: number; totalDays: number } {
+  const today = new Date().toISOString().slice(0, 10)
+  const data = read<LoginStreak>(KEY_LOGIN_STREAK, { streak: 0, totalDays: 0, lastLoginDate: '' })
+
+  if (data.lastLoginDate === today) {
+    return { isNewDay: false, streak: data.streak, totalDays: data.totalDays }
+  }
+
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayStr = yesterday.toISOString().slice(0, 10)
+
+  const newStreak = data.lastLoginDate === yesterdayStr ? data.streak + 1 : 1
+  const newTotal = data.totalDays + 1
+
+  write(KEY_LOGIN_STREAK, { streak: newStreak, totalDays: newTotal, lastLoginDate: today })
+  return { isNewDay: true, streak: newStreak, totalDays: newTotal }
+}
 
 function read<T>(key: string, fallback: T): T {
   try {

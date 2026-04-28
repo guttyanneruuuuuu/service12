@@ -8,7 +8,7 @@ import { renderOrbSvg } from './lib/orb-svg'
 import {
   getCapsules, saveCapsule, deleteCapsule, updateCapsule,
   resolveTimeCapsules, computeStats, exportData, importData,
-  getOnThisDay, setLastSeen,
+  getOnThisDay, setLastSeen, checkAndUpdateDailyLogin,
   type Capsule, type Rarity
 } from './lib/storage'
 import { saveFusion, getFusions } from './lib/storage'
@@ -131,6 +131,218 @@ function getDailyPrompt(): string {
   const today = new Date()
   const key = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate()
   return DAILY_PROMPTS[key % DAILY_PROMPTS.length]
+}
+
+// =====================
+// Time-based Greeting
+// =====================
+
+function getTimeGreeting(): string {
+  const h = new Date().getHours()
+  if (h >= 5 && h < 10) return 'おはよう！今日も良い1日になるといいね ☀️'
+  if (h >= 10 && h < 17) return 'こんにちは！今日はどんな気持ち？ 🌸'
+  if (h >= 17 && h < 21) return '今日もお疲れ様！ゆっくり振り返ってみよう 🌙'
+  return 'こんな夜遅くまでお疲れ様！今日の気持ち、書いてみて 🌟'
+}
+
+// =====================
+// Daily Login Bonus
+// =====================
+
+function showDailyLoginBonus(streak: number, totalDays: number) {
+  const streakMsg =
+    streak >= 30 ? `🔥 ${streak}日連続！信じられない…すごすぎる！` :
+    streak >= 7  ? `🔥 ${streak}日連続ログイン！かっこよすぎる！` :
+    streak >= 3  ? `🔥 ${streak}日連続ログイン！調子いいね！` :
+    streak > 1   ? `🔥 ${streak}日連続ログイン！` :
+    '今日も来てくれてありがとう！'
+
+  const totalStamps = 7
+  const filled = Math.min(streak, totalStamps)
+  const stamps = Array.from({ length: totalStamps }, (_, i) =>
+    `<div class="login-stamp-dot${i < filled ? ' stamped' : ''}">${i < filled ? '⭐' : '○'}</div>`
+  ).join('')
+
+  openModal(`
+    <div style="text-align:center;padding:8px 0 4px;">
+      <div class="login-bonus-anim">🎊</div>
+      <h3 style="margin:12px 0 6px;font-size:22px;color:#3D2B5C;">ログインボーナス！</h3>
+      <p style="color:#6B5B95;line-height:1.7;margin:0 0 12px;font-size:15px;">${escapeHtml(streakMsg)}</p>
+      <div class="login-stamp-row">${stamps}</div>
+      <p style="font-size:13px;color:#9D90B8;margin:12px 0 20px;">通算 <strong style="color:#B69BFF">${totalDays}</strong> 日目！</p>
+      <button class="puni-btn puni-btn-primary" style="width:auto;padding:10px 32px;" id="login-bonus-close">✨ やったー！</button>
+    </div>
+  `)
+  setTimeout(() => {
+    document.getElementById('login-bonus-close')?.addEventListener('click', closeModal)
+  }, 50)
+}
+
+// =====================
+// Support / Donate Modal
+// =====================
+
+function showSupportModal() {
+  openModal(`
+    <div style="text-align:center;padding:8px 0;">
+      <div style="font-size:56px;margin-bottom:8px;">🍩</div>
+      <h3 style="margin:0 0 8px;font-size:20px;color:#3D2B5C;">開発者を応援する</h3>
+      <p style="color:#6B5B95;line-height:1.8;font-size:14px;margin:0 0 16px;">
+        「ぷにメモリー」は高校生が一人で開発しています。<br/>
+        気に入ってくれたら、おやつ代を奢ってもらえると<br/>
+        すごく嬉しいです！開発の励みになります 🥹
+      </p>
+      <div class="support-links">
+        <a href="https://www.amazon.co.jp/hz/wishlist/ls/YOUR_WISHLIST_ID" target="_blank" rel="noopener" class="support-link-btn">
+          🎁 ほしい物リスト (Amazon)
+        </a>
+        <a href="https://buymeacoffee.com/YOUR_HANDLE" target="_blank" rel="noopener" class="support-link-btn">
+          ☕ Buy Me a Coffee
+        </a>
+      </div>
+      <p style="font-size:12px;color:#9D90B8;margin:12px 0 0;">リンクは近日公開予定です 🚧</p>
+      <button class="puni-btn puni-btn-primary" style="width:auto;padding:10px 32px;margin-top:16px;" data-close>閉じる</button>
+    </div>
+  `)
+  document.querySelector('[data-close]')?.addEventListener('click', closeModal)
+}
+
+// =====================
+// Orb Certificate (Canvas)
+// =====================
+
+async function generateAndDownloadCertificate(cap: Capsule, emo: { emotion: string; score: number; intensity: number }, orb: { color: string; color2: string; pattern: string; rarity: string }) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 400
+  canvas.height = 520
+  const ctx = canvas.getContext('2d')!
+
+  await document.fonts.ready
+
+  // Background gradient
+  const grad = ctx.createLinearGradient(0, 0, 400, 520)
+  grad.addColorStop(0, '#FFE5F1')
+  grad.addColorStop(0.5, '#E5F1FF')
+  grad.addColorStop(1, '#F1E5FF')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, 400, 520)
+
+  // Decorative circles
+  ctx.save()
+  ctx.globalAlpha = 0.18
+  ctx.fillStyle = '#FF8FB1'
+  ctx.beginPath(); ctx.arc(360, 40, 80, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#B69BFF'
+  ctx.beginPath(); ctx.arc(40, 480, 100, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#8AB8FF'
+  ctx.beginPath(); ctx.arc(350, 460, 70, 0, Math.PI * 2); ctx.fill()
+  ctx.restore()
+
+  // White glass card
+  ctx.save()
+  ctx.globalAlpha = 0.78
+  ctx.fillStyle = '#ffffff'
+  const rx = 24, cx = 20, cy = 20, cw = 360, ch = 480
+  ctx.beginPath()
+  ctx.moveTo(cx + rx, cy)
+  ctx.lineTo(cx + cw - rx, cy)
+  ctx.quadraticCurveTo(cx + cw, cy, cx + cw, cy + rx)
+  ctx.lineTo(cx + cw, cy + ch - rx)
+  ctx.quadraticCurveTo(cx + cw, cy + ch, cx + cw - rx, cy + ch)
+  ctx.lineTo(cx + rx, cy + ch)
+  ctx.quadraticCurveTo(cx, cy + ch, cx, cy + ch - rx)
+  ctx.lineTo(cx, cy + rx)
+  ctx.quadraticCurveTo(cx, cy, cx + rx, cy)
+  ctx.closePath()
+  ctx.fill()
+  ctx.restore()
+
+  const fontFamily = '"Zen Maru Gothic", "M PLUS Rounded 1c", sans-serif'
+
+  // App title
+  ctx.fillStyle = '#3D2B5C'
+  ctx.font = `900 22px ${fontFamily}`
+  ctx.textAlign = 'center'
+  ctx.fillText('ぷにメモリー ✨', 200, 60)
+  ctx.font = `500 12px ${fontFamily}`
+  ctx.fillStyle = '#9D90B8'
+  ctx.fillText('今日のぷにオーブ', 200, 80)
+
+  // Orb SVG rendered to canvas
+  const svgStr = renderOrbSvg({ color: orb.color, color2: orb.color2, pattern: orb.pattern, size: 150, rarity: orb.rarity as Rarity })
+  const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
+  const svgUrl = URL.createObjectURL(svgBlob)
+  await new Promise<void>((resolve) => {
+    const img = new Image()
+    img.onload = () => { ctx.drawImage(img, 125, 90, 150, 150); URL.revokeObjectURL(svgUrl); resolve() }
+    img.onerror = () => { URL.revokeObjectURL(svgUrl); resolve() }
+    img.src = svgUrl
+  })
+
+  // Rarity badge
+  const RARITY_COLORS: Record<string, string[]> = {
+    legendary: ['#FFD700', '#FF8C00'],
+    epic: ['#9B59B6', '#6C3483'],
+    rare: ['#3498DB', '#1a6b9a'],
+    common: ['#95A5A6', '#7F8C8D']
+  }
+  const [c1, c2] = RARITY_COLORS[orb.rarity] || ['#ccc', '#aaa']
+  const rGrad = ctx.createLinearGradient(150, 250, 250, 280)
+  rGrad.addColorStop(0, c1); rGrad.addColorStop(1, c2)
+  ctx.fillStyle = rGrad
+  ctx.beginPath()
+  const bx = 140, by = 252, bw = 120, bh = 26, br = 13
+  ctx.moveTo(bx + br, by); ctx.lineTo(bx + bw - br, by)
+  ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + br)
+  ctx.lineTo(bx + bw, by + bh - br)
+  ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - br, by + bh)
+  ctx.lineTo(bx + br, by + bh); ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - br)
+  ctx.lineTo(bx, by + br); ctx.quadraticCurveTo(bx, by, bx + br, by)
+  ctx.closePath(); ctx.fill()
+
+  const rLabel = ({ common: 'コモン', rare: 'レア', epic: 'エピック', legendary: 'レジェンダリー' } as Record<string, string>)[orb.rarity]
+  ctx.fillStyle = 'white'
+  ctx.font = `700 13px ${fontFamily}`
+  ctx.fillText(rLabel, 200, 270)
+
+  // Capsule title
+  ctx.fillStyle = '#3D2B5C'
+  ctx.font = `900 18px ${fontFamily}`
+  const titleText = cap.title.length > 22 ? cap.title.slice(0, 20) + '…' : cap.title
+  ctx.fillText(titleText, 200, 312)
+
+  // Emotion
+  const emoLabel = EMOTION_LABELS[emo.emotion as keyof typeof EMOTION_LABELS] || emo.emotion
+  const emoEmoji = EMOTION_EMOJIS[emo.emotion as keyof typeof EMOTION_EMOJIS] || '✨'
+  ctx.fillStyle = '#6B5B95'
+  ctx.font = `500 15px ${fontFamily}`
+  ctx.fillText(`${emoEmoji} ${emoLabel}`, 200, 340)
+
+  // Date
+  ctx.fillStyle = '#9D90B8'
+  ctx.font = `500 12px ${fontFamily}`
+  ctx.fillText(formatDate(cap.createdAt), 200, 362)
+
+  // Divider
+  ctx.strokeStyle = 'rgba(182,155,255,0.35)'
+  ctx.lineWidth = 1
+  ctx.beginPath(); ctx.moveTo(60, 382); ctx.lineTo(340, 382); ctx.stroke()
+
+  // App URL
+  ctx.fillStyle = '#B69BFF'
+  ctx.font = `700 11px ${fontFamily}`
+  ctx.fillText('guttyanneruuuuuu.github.io/service12/', 200, 404)
+  ctx.fillStyle = '#9D90B8'
+  ctx.font = `500 11px ${fontFamily}`
+  ctx.fillText('#今日のぷにオーブ #ぷにメモリー', 200, 424)
+
+  // Download
+  const dataUrl = canvas.toDataURL('image/png')
+  const a = document.createElement('a')
+  a.href = dataUrl
+  a.download = `puni-orb-${new Date().toISOString().slice(0, 10)}.png`
+  a.click()
+  showToast('オーブ証明書を保存しました！📸 SNSにシェアしてね', 'success', 4000)
 }
 
 // =====================
@@ -320,6 +532,8 @@ function showResult(container: HTMLElement, cap: Capsule, emo: any, orb: any) {
     ? `<div class="result-capsule-note">⏳ ${formatDate(cap.openAt)} に開封されます。それまでの楽しみに！</div>`
     : ''
 
+  const xText = encodeURIComponent(`ぷにメモリーで「${cap.title}」のオーブを生成！\n${emoEmoji} ${emoLabel}｜${rLabel}\n#今日のぷにオーブ #ぷにメモリー\nhttps://guttyanneruuuuuu.github.io/service12/`)
+
   container.innerHTML = `
   <div class="result-card result-orb-appear">
     <div class="result-header">
@@ -348,18 +562,32 @@ function showResult(container: HTMLElement, cap: Capsule, emo: any, orb: any) {
       </div>
     </div>
     <div class="result-actions">
-      <button class="result-btn" id="result-share-btn">🔗 シェアする</button>
+      <a class="result-btn result-x-btn" href="https://twitter.com/intent/tweet?text=${xText}" target="_blank" rel="noopener">🐦 Xでシェア</a>
+      <button class="result-btn result-cert-btn" id="result-cert-btn">🎨 証明書を生成</button>
       <button class="result-btn secondary" id="result-collection-btn">🗂️ 図鑑を見る</button>
     </div>
+  </div>
+  <div class="affiliate-section">
+    <h4 class="affiliate-title">✨ 今日のおすすめリラックスグッズ</h4>
+    <div class="affiliate-grid">
+      <a href="https://www.amazon.co.jp/s?k=%E3%81%8B%E3%82%8F%E3%81%84%E3%81%84+%E6%97%A5%E8%A8%98%E5%B8%B3" target="_blank" rel="noopener" class="affiliate-card">
+        <div class="affiliate-img">📓</div>
+        <p class="affiliate-name">可愛い日記帳</p>
+      </a>
+      <a href="https://www.amazon.co.jp/s?k=%E3%82%A2%E3%83%AD%E3%83%9E+%E3%82%AD%E3%83%A3%E3%83%B3%E3%83%89%E3%83%AB" target="_blank" rel="noopener" class="affiliate-card">
+        <div class="affiliate-img">🕯️</div>
+        <p class="affiliate-name">アロマキャンドル</p>
+      </a>
+      <a href="https://www.amazon.co.jp/s?k=%E3%81%B2%E3%81%88%E3%81%9F%E3%82%93%E3%81%B4%E3%82%8A+%E3%81%8B%E3%82%8F%E3%81%84%E3%81%84" target="_blank" rel="noopener" class="affiliate-card">
+        <div class="affiliate-img">🧸</div>
+        <p class="affiliate-name">ぬいぐるみ</p>
+      </a>
+    </div>
+    <p class="affiliate-note">※ Amazonリンク（アソシエイト追加予定）</p>
   </div>`
 
-  document.getElementById('result-share-btn')?.addEventListener('click', () => {
-    const text = `ぷにメモリーで「${cap.title}」のオーブを生成！感情:${emoEmoji}${emoLabel} レアリティ:${rLabel} #ぷにメモリー`
-    if (navigator.share) {
-      navigator.share({ title: 'ぷにメモリー', text, url: location.href }).catch(() => {})
-    } else {
-      navigator.clipboard.writeText(text).then(() => showToast('テキストをコピーしました！')).catch(() => {})
-    }
+  document.getElementById('result-cert-btn')?.addEventListener('click', () => {
+    generateAndDownloadCertificate(cap, emo, orb)
   })
 
   document.getElementById('result-collection-btn')?.addEventListener('click', () => {
@@ -962,6 +1190,14 @@ function buildAppHtml(): string {
     <div class="puni-blob puni-blob-1"></div>
     <div class="puni-blob puni-blob-2"></div>
     <div class="puni-blob puni-blob-3"></div>
+    <div class="puni-bubble puni-bubble-1"></div>
+    <div class="puni-bubble puni-bubble-2"></div>
+    <div class="puni-bubble puni-bubble-3"></div>
+    <div class="puni-bubble puni-bubble-4"></div>
+    <div class="puni-bubble puni-bubble-5"></div>
+    <div class="puni-bubble puni-bubble-6"></div>
+    <div class="puni-bubble puni-bubble-7"></div>
+    <div class="puni-bubble puni-bubble-8"></div>
   </div>
 
   <header class="puni-header">
@@ -989,6 +1225,7 @@ function buildAppHtml(): string {
           <div class="puni-hero-orb puni-hero-orb-2"></div>
           <div class="puni-hero-orb puni-hero-orb-3"></div>
         </div>
+        <p class="puni-time-greeting" id="time-greeting"></p>
         <h1 class="puni-hero-title">
           今日の気持ちを<br/>
           <span class="puni-grad-text">ぷにぷにオーブ</span>に。
@@ -1085,6 +1322,7 @@ function buildAppHtml(): string {
   <footer class="puni-footer">
     <p>ぷにメモリー © 2025 — 完全プライベート・完全ローカル</p>
     <p class="footer-sub">🔒 あなたのデータはこの端末のみに保存されます</p>
+    <button class="support-btn" id="support-modal-btn">🍩 開発者におやつを奢る</button>
   </footer>
 
   <div id="modal-root" class="puni-modal-root" style="display:none;">
@@ -1381,6 +1619,66 @@ a{text-decoration:none;color:inherit}
 
 .puni-footer{text-align:center;padding:24px;color:var(--text-mute);font-size:13px}
 .footer-sub{margin:4px 0 0;font-size:11px}
+
+/* Floating pastel bubbles */
+.puni-bubble{position:absolute;border-radius:50%;pointer-events:none;animation:bubbleRise linear infinite}
+@keyframes bubbleRise{0%{transform:translateY(110vh) scale(.8);opacity:0}8%{opacity:.4}88%{opacity:.4}100%{transform:translateY(-20vh) scale(1.15);opacity:0}}
+.puni-bubble-1{width:18px;height:18px;left:12%;background:radial-gradient(circle at 35% 30%,rgba(255,214,232,.9),rgba(255,143,177,.4));animation-duration:13s;animation-delay:0s}
+.puni-bubble-2{width:28px;height:28px;left:32%;background:radial-gradient(circle at 35% 30%,rgba(224,204,255,.9),rgba(182,155,255,.4));animation-duration:19s;animation-delay:-5s}
+.puni-bubble-3{width:14px;height:14px;left:55%;background:radial-gradient(circle at 35% 30%,rgba(200,230,255,.9),rgba(138,184,255,.4));animation-duration:15s;animation-delay:-9s}
+.puni-bubble-4{width:22px;height:22px;left:70%;background:radial-gradient(circle at 35% 30%,rgba(255,241,184,.9),rgba(255,217,61,.4));animation-duration:17s;animation-delay:-3s}
+.puni-bubble-5{width:16px;height:16px;left:85%;background:radial-gradient(circle at 35% 30%,rgba(255,214,232,.9),rgba(255,143,177,.4));animation-duration:12s;animation-delay:-7s}
+.puni-bubble-6{width:30px;height:30px;left:6%;background:radial-gradient(circle at 35% 30%,rgba(199,240,219,.9),rgba(143,224,184,.4));animation-duration:21s;animation-delay:-11s}
+.puni-bubble-7{width:12px;height:12px;left:44%;background:radial-gradient(circle at 35% 30%,rgba(255,214,232,.9),rgba(182,155,255,.4));animation-duration:10s;animation-delay:-2s}
+.puni-bubble-8{width:20px;height:20px;left:62%;background:radial-gradient(circle at 35% 30%,rgba(200,230,255,.9),rgba(138,184,255,.4));animation-duration:16s;animation-delay:-14s}
+
+/* Jelly / bouncy button effects */
+.puni-btn:not(:disabled):active{animation:jellyBounce .35s ease}
+@keyframes jellyBounce{0%{transform:scale(1)}20%{transform:scale(.92,1.08)}45%{transform:scale(1.06,.94)}65%{transform:scale(.97,1.03)}80%{transform:scale(1.02,.98)}100%{transform:scale(1)}}
+.puni-btn-primary:hover:not(:disabled){transform:translateY(-3px) scale(1.02);box-shadow:0 14px 32px rgba(182,155,255,.55)}
+.puni-prompt-use:hover{transform:scale(1.04);transition:transform .2s}
+.puni-prompt-use:active{animation:jellyBounce .35s ease}
+.orb-card:hover{transform:translateY(-6px) scale(1.03);box-shadow:var(--shadow-strong)}
+.nav-btn:active{animation:jellyBounce .25s ease}
+.result-btn:active{animation:jellyBounce .3s ease}
+.filter-chip:active{animation:jellyBounce .25s ease}
+
+/* Glassmorphism card upgrade */
+.puni-card,.result-card,.section-card,.puni-prompt-card,.stat-card,.otd-card{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+
+/* Time-based greeting */
+.puni-time-greeting{font-size:clamp(13px,3vw,15px);font-weight:700;color:var(--text-soft);margin:0 0 8px;padding:8px 18px;background:rgba(255,255,255,.6);backdrop-filter:blur(8px);border-radius:999px;display:inline-block;border:1.5px solid rgba(182,155,255,.2)}
+
+/* Daily login bonus popup */
+.login-bonus-anim{font-size:64px;line-height:1;animation:loginBounce .6s cubic-bezier(.34,1.56,.64,1)}
+@keyframes loginBounce{0%{transform:scale(0) rotate(-20deg);opacity:0}60%{transform:scale(1.15) rotate(8deg)}100%{transform:scale(1) rotate(0deg);opacity:1}}
+.login-stamp-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:8px 0}
+.login-stamp-dot{width:36px;height:36px;border-radius:50%;background:rgba(180,140,220,.1);border:2px solid rgba(182,155,255,.3);display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .3s}
+.login-stamp-dot.stamped{background:linear-gradient(135deg,#FFB3D9,#B69BFF);border-color:transparent;box-shadow:0 4px 12px rgba(182,155,255,.4);animation:stampPop .4s cubic-bezier(.34,1.56,.64,1) both}
+@keyframes stampPop{from{transform:scale(0) rotate(-15deg)}to{transform:scale(1) rotate(0deg)}}
+
+/* Support / donate button */
+.support-btn{border:none;background:linear-gradient(135deg,rgba(255,183,213,.4),rgba(182,155,255,.3));color:var(--text-soft);padding:8px 20px;border-radius:999px;font-size:13px;font-weight:700;margin-top:12px;cursor:pointer;transition:all .2s;border:1.5px solid rgba(182,155,255,.25);backdrop-filter:blur(8px)}
+.support-btn:hover{transform:translateY(-2px) scale(1.03);background:linear-gradient(135deg,rgba(255,183,213,.6),rgba(182,155,255,.5));box-shadow:0 6px 16px rgba(182,155,255,.3)}
+.support-btn:active{animation:jellyBounce .3s ease}
+.support-links{display:flex;flex-direction:column;gap:10px;margin:12px 0}
+.support-link-btn{display:block;padding:12px 20px;border-radius:var(--r-sm);background:linear-gradient(135deg,#FFE5F1,#E5F1FF);color:var(--text);font-weight:700;font-size:14px;text-decoration:none;transition:all .2s;border:1.5px solid rgba(182,155,255,.2)}
+.support-link-btn:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(182,155,255,.25)}
+
+/* Affiliate section */
+.affiliate-section{background:rgba(255,255,255,.7);backdrop-filter:blur(10px);border-radius:var(--r-lg);padding:18px 20px;margin-top:14px;border:1.5px solid rgba(182,155,255,.15)}
+.affiliate-title{font-size:15px;font-weight:900;color:var(--text-soft);margin:0 0 12px;text-align:center}
+.affiliate-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.affiliate-card{background:white;border-radius:var(--r-sm);padding:12px 8px;text-align:center;text-decoration:none;color:var(--text);transition:all .2s;border:1.5px solid rgba(182,155,255,.12);display:block}
+.affiliate-card:hover{transform:translateY(-3px) scale(1.03);box-shadow:0 6px 16px rgba(182,155,255,.25)}
+.affiliate-img{font-size:28px;margin-bottom:6px}
+.affiliate-name{font-size:11px;font-weight:700;color:var(--text-soft);margin:0;line-height:1.3}
+.affiliate-note{font-size:11px;color:var(--text-mute);text-align:center;margin:10px 0 0}
+
+/* X/Twitter share button in result */
+.result-x-btn{background:linear-gradient(135deg,#1DA1F2,#0d8fd9);color:white;display:inline-flex;align-items:center;gap:6px;text-decoration:none;padding:10px 20px;border-radius:999px;font-size:14px;font-weight:700;transition:all .2s}
+.result-x-btn:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(29,161,242,.4)}
+.result-cert-btn{background:linear-gradient(135deg,#FF8FB1,#FFD93D)}
   `
   document.head.appendChild(style)
 }
@@ -1403,6 +1701,16 @@ function init() {
     showToast(`🎉 ${opened.length}個のタイムカプセルが開封されました！`, 'info', 5000)
   }
 
+  // Set time-based greeting
+  const greetingEl = document.getElementById('time-greeting')
+  if (greetingEl) greetingEl.textContent = getTimeGreeting()
+
+  // Daily login bonus
+  const loginResult = checkAndUpdateDailyLogin()
+  if (loginResult.isNewDay) {
+    setTimeout(() => showDailyLoginBonus(loginResult.streak, loginResult.totalDays), 800)
+  }
+
   // Tab navigation
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1413,6 +1721,9 @@ function init() {
 
   // Modal close on backdrop click
   document.getElementById('modal-backdrop')?.addEventListener('click', closeModal)
+
+  // Support button
+  document.getElementById('support-modal-btn')?.addEventListener('click', showSupportModal)
 
   // Setup create tab
   setupCreateTab()
