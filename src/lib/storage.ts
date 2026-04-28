@@ -1,6 +1,7 @@
 // localStorage-based storage layer (replaces Cloudflare D1)
 
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary'
+export type Attribute = '水' | '火' | '風' | '光' | '闇' | '星'
 
 export interface Capsule {
   id: string
@@ -14,11 +15,13 @@ export interface Capsule {
   orbPattern: string
   orbSize: number
   rarity: Rarity
+  attribute?: Attribute   // elemental attribute derived from emotion + date
   shareId: string
   openAt: number | null
   opened: boolean
   createdAt: number
-  fusedFrom?: string[]  // ids of source orbs if this was fused
+  fusedFrom?: string[]    // ids of source orbs if this was fused
+  giftedFrom?: string     // set if received as a gift URL
 }
 
 export interface FusionLog {
@@ -31,6 +34,30 @@ export interface FusionLog {
 const KEY_CAPSULES = 'puni_capsules_v2'
 const KEY_FUSIONS = 'puni_fusions'
 const KEY_LAST_SEEN = 'puni_last_seen'
+const KEY_UNLOCKS = 'puni_unlocks'
+const KEY_DAILY_LOGIN = 'puni_daily_login'
+
+// =====================
+// Secret Code Registry
+// =====================
+
+export interface PremiumItem {
+  code: string
+  name: string
+  type: 'skin' | 'bg'
+  value: string   // CSS value (color, gradient, etc.)
+  emoji: string
+  desc: string
+}
+
+export const PREMIUM_ITEMS: PremiumItem[] = [
+  { code: 'GALAXY2025',  name: 'ギャラクシースキン',   type: 'skin', value: 'radial-gradient(circle at 30% 25%,#0a0035,#1a0066 40%,#3d00b3 70%,#00f5d4)', emoji: '🌌', desc: '宇宙を纏うギャラクシーオーブ' },
+  { code: 'NEONPINK',   name: 'ネオンピンクスキン',    type: 'skin', value: 'radial-gradient(circle at 30% 25%,#ff00aa,#ff69b4 50%,#ff1493)', emoji: '💗', desc: 'ネオンに輝くピンクオーブ' },
+  { code: 'AURORA',     name: 'オーロラスキン',        type: 'skin', value: 'radial-gradient(circle at 30% 25%,#00c9ff,#92fe9d 50%,#ff6a00)', emoji: '🌈', desc: 'オーロラが揺れる幻想的なオーブ' },
+  { code: 'SAKURA25',   name: '桜の間（背景）',         type: 'bg',   value: 'linear-gradient(160deg,#ffe4ec 0%,#ffd6e7 50%,#ffb3c6 100%)', emoji: '🌸', desc: '満開の桜に包まれた部屋' },
+  { code: 'STARNIGHT',  name: '星夜の間（背景）',        type: 'bg',   value: 'linear-gradient(160deg,#0d0221 0%,#1a0551 50%,#0d1b5e 100%)', emoji: '🌠', desc: '星降る夜空の部屋' },
+  { code: 'DEVTEST',    name: 'レインボースキン（テスト用）', type: 'skin', value: 'conic-gradient(from 0deg,#ff0080,#ff8c00,#40e0d0,#8a2be2,#ff0080)', emoji: '🎨', desc: '開発者テスト用レインボースキン' },
+]
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -182,4 +209,55 @@ export function getLastSeen(): number {
 
 export function setLastSeen(): void {
   write(KEY_LAST_SEEN, Date.now())
+}
+
+// =====================
+// Secret Code Unlocks
+// =====================
+
+export function getUnlockedCodes(): string[] {
+  return read<string[]>(KEY_UNLOCKS, [])
+}
+
+export function redeemCode(code: string): PremiumItem | null {
+  const normalized = code.trim().toUpperCase()
+  const item = PREMIUM_ITEMS.find(i => i.code === normalized)
+  if (!item) return null
+  const existing = getUnlockedCodes()
+  if (existing.includes(normalized)) return item  // already unlocked, return item anyway
+  write(KEY_UNLOCKS, [...existing, normalized])
+  return item
+}
+
+export function isCodeUnlocked(code: string): boolean {
+  return getUnlockedCodes().includes(code.trim().toUpperCase())
+}
+
+export function getUnlockedItems(): PremiumItem[] {
+  const codes = getUnlockedCodes()
+  return PREMIUM_ITEMS.filter(i => codes.includes(i.code))
+}
+
+// =====================
+// Daily Login Bonus
+// =====================
+
+export interface DailyLoginRecord {
+  lastDate: string   // ISO date yyyy-mm-dd
+  streak: number
+}
+
+export function getDailyLogin(): DailyLoginRecord {
+  return read<DailyLoginRecord>(KEY_DAILY_LOGIN, { lastDate: '', streak: 0 })
+}
+
+export function checkAndRecordDailyLogin(): { isNew: boolean; streak: number } {
+  const today = new Date().toISOString().slice(0, 10)
+  const rec = getDailyLogin()
+  if (rec.lastDate === today) return { isNew: false, streak: rec.streak }
+
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+  const newStreak = rec.lastDate === yesterday ? rec.streak + 1 : 1
+  write(KEY_DAILY_LOGIN, { lastDate: today, streak: newStreak })
+  return { isNew: true, streak: newStreak }
 }
